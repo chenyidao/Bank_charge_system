@@ -1,0 +1,105 @@
+CREATE OR REPLACE
+PROCEDURE payment (user_no IN NUMBER DEFAULT '0',in_payfee IN NUMBER DEFAULT '0', out_user_name OUT VARCHAR2, out_error OUT VARCHAR2,out_result OUT VARCHAR2)
+AS
+Puser_name VARCHAR2(20);
+Ppay NUMBER(10,2);
+Puser_num NUMBER(4);
+Perror VARCHAR2(20);
+Pbasic_fee NUMBER(10,2);
+Pfinal_fee NUMBER(10,2);
+Padd_fee1 NUMBER(10,2);
+Padd_fee2 NUMBER(10,2);
+Plate_fee NUMBER(10,2);
+Pcharge NUMBER(10,2);
+is_pay VARCHAR2(10);
+current_user_balance NUMBER(10,2);
+now_date DATE;
+BEGIN
+	SELECT COUNT("user_id") INTO Puser_num FROM "User" WHERE "user_id" = user_no;
+	if Puser_num = 0 THEN
+		Perror:='not this user';
+		out_error:=Perror;
+	end if;
+	
+	SELECT "balance","user_name"INTO current_user_balance,Puser_name FROM "User"WHERE "user_id"=user_no; 
+	out_user_name:=Puser_name;
+	out_error:='not error';
+	SELECT SUM("basic_fee"),SUM("add1_fee"),SUM("add2_fee"),SUM("penalty")INTO Pbasic_fee,Padd_fee1,Padd_fee2,Plate_fee FROM "List_Of_Fees" WHERE "user_id"=user_no AND "pay_state"=0;
+	Pfinal_fee:=Pbasic_fee+Padd_fee1+Padd_fee2+Plate_fee;
+	DBMS_OUTPUT.PUT_LINE('需要缴费的金额为：'||Pfinal_fee);
+	DBMS_OUTPUT.PUT_LINE('当前账户余额为：'||current_user_balance);
+	DBMS_OUTPUT.PUT_LINE('要充值的费用为：'||in_payfee);
+	
+	--SELECT 
+	IF(Pfinal_fee!=0 AND Pfinal_fee<=(current_user_balance+in_payfee)) THEN
+			current_user_balance:= current_user_balance+in_payfee-Pfinal_fee;
+			UPDATE "User" SET "User"."balance"=current_user_balance WHERE "User"."user_id"=user_no;
+			UPDATE "List_Of_Fees"SET "pay_state"='1' WHERE"user_id"=user_no;
+			--SELECT SYSDATE INTO now_date FROM dual;
+			--DBMS_OUTPUT.PUT_LINE(SYSDATE);
+			INSERT INTO "Payment_record" VALUES(6003,user_no,SYSDATE,Pfinal_fee,'01','CMB',5003);
+			INSERT INTO "Bank_Business_System" VALUES(5003,'CMB',user_no,Puser_name,SYSDATE,Pfinal_fee,'存款');
+				
+			out_result:='缴费成功';
+			Pfinal_fee:=0;
+			DBMS_OUTPUT.PUT_LINE('缴费后的账户余额为：'||current_user_balance);
+	ELSE IF(Pfinal_fee>(current_user_balance+in_payfee)) THEN
+			out_result:='缴费失败，费用不足';
+			
+			--	DBMS_OUTPUT.PUT_LINE(final_fee);
+	END if;
+	
+	END IF;
+END;CREATE OR REPLACE
+PROCEDURE payment (user_no IN NUMBER DEFAULT '0',in_payfee IN NUMBER DEFAULT '0', out_user_name OUT VARCHAR2, out_error OUT VARCHAR2,out_result OUT VARCHAR2)
+AS
+Puser_name VARCHAR2(20);
+Ppay NUMBER(10,2);
+Puser_num NUMBER(4);
+Perror VARCHAR2(20);
+Pbasic_fee NUMBER(10,2);
+Pfinal_fee NUMBER(10,2);
+Padd_fee1 NUMBER(10,2);
+Padd_fee2 NUMBER(10,2);
+Plate_fee NUMBER(10,2);
+Pcharge NUMBER(10,2);
+is_pay VARCHAR2(10);
+current_user_balance NUMBER(10,2);
+now_date DATE;
+BEGIN
+	SELECT COUNT("user_id") INTO Puser_num FROM "User" WHERE "user_id" = user_no;
+	if Puser_num = 0 THEN
+		Perror:='not this user';
+		out_error:=Perror;
+	end if;
+	
+	SELECT "balance","user_name"INTO current_user_balance,Puser_name FROM "User"WHERE "user_id"=user_no; 
+	out_user_name:=Puser_name;
+	out_error:='not error';
+	SELECT SUM("basic_fee"),SUM("add1_fee"),SUM("add2_fee"),SUM("penalty")INTO Pbasic_fee,Padd_fee1,Padd_fee2,Plate_fee FROM "List_Of_Fees" WHERE "user_id"=user_no AND "pay_state"=0;
+	Pfinal_fee:=Pbasic_fee+Padd_fee1+Padd_fee2+Plate_fee;
+	DBMS_OUTPUT.PUT_LINE('需要缴费的金额为：'||Pfinal_fee);
+	DBMS_OUTPUT.PUT_LINE('当前账户余额为：'||current_user_balance);
+	DBMS_OUTPUT.PUT_LINE('要充值的费用为：'||in_payfee);
+	
+	--SELECT 
+	IF(Pfinal_fee!=0 AND Pfinal_fee<=(current_user_balance+in_payfee)) THEN
+			current_user_balance:= current_user_balance+in_payfee-Pfinal_fee;
+			UPDATE "User" SET "User"."balance"=current_user_balance WHERE "User"."user_id"=user_no;
+			UPDATE "List_Of_Fees"SET "pay_state"='1' WHERE"user_id"=user_no;
+			--SELECT SYSDATE INTO now_date FROM dual;
+			--DBMS_OUTPUT.PUT_LINE(SYSDATE);
+			INSERT INTO "Payment_record" VALUES(6003,user_no,SYSDATE,Pfinal_fee,'01','CMB',5003);
+			INSERT INTO "Bank_Business_System" VALUES(5003,'CMB',user_no,Puser_name,SYSDATE,Pfinal_fee,'存款');
+				
+			out_result:='缴费成功';
+			Pfinal_fee:=0;
+			DBMS_OUTPUT.PUT_LINE('缴费后的账户余额为：'||current_user_balance);
+	ELSE IF(Pfinal_fee>(current_user_balance+in_payfee)) THEN
+			out_result:='缴费失败，费用不足';
+			
+			--	DBMS_OUTPUT.PUT_LINE(final_fee);
+	END if;
+	
+	END IF;
+END;

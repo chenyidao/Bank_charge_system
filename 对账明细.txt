@@ -1,0 +1,96 @@
+CREATE OR REPLACE
+PROCEDURE "checkdetail" (in_bank_code IN VARCHAR2,out_result OUT VARCHAR2)
+AS
+Pour_totalcount NUMBER(10);
+Pour_totalmoney NUMBER(10,2);
+Pbank_totalcount NUMBER(10);
+Pbank_totalmoney NUMBER(10,2);
+
+--定义表Payment_record的游标
+-- cursor record_pr IS
+-- SELECT * FROM "Payment_record"
+-- WHERE TO_CHAR("pay_time",'yyyy-mm-dd') = TO_CHAR(SYSDATE-1,'yyyy-mm-dd') AND "bank_code" = in_bank_code;
+
+
+cursor record_b IS
+SELECT* FROM "Bank_Business_System"
+WHERE TO_CHAR("transaction_time",'yyyy-mm-dd') = TO_CHAR(SYSDATE-1,'yyyy-mm-dd')AND "bank_code" = in_bank_code;
+
+--pr record_pr%rowtype;
+bb record_b%rowtype;
+
+num NUMBER(4);
+pr_money NUMBER(10,2);
+
+BEGIN
+	DBMS_OUTPUT.PUT_LINE(num);
+	SELECT COUNT(*),SUM(p."pay_amount")
+	INTO Pour_totalcount,Pour_totalmoney
+	FROM "Payment_record" p
+	WHERE p."bank_code" = in_bank_code AND TO_CHAR(p."pay_time",'yyyy-mm-dd')=TO_CHAR(SYSDATE-1,'yyyy-mm-dd');
+	
+	SELECT COUNT(*),SUM(b."transaction_money")
+	INTO Pbank_totalcount,Pbank_totalmoney
+	FROM "Bank_Business_System" b
+	WHERE b."bank_code" = in_bank_code AND TO_CHAR(b."transaction_time",'yyyy-mm-dd') = TO_CHAR(SYSDATE-1,'yyyy-mm-dd');
+	IF Pour_totalcount = Pbank_totalcount AND Pour_totalmoney = Pbank_totalmoney THEN
+		INSERT INTO "Bank_Check_Total"VALUES(7002,SYSDATE,in_bank_code,Pbank_totalcount,Pbank_totalmoney,Pour_totalcount,Pour_totalmoney,'00');
+	DBMS_OUTPUT.PUT_LINE('对总账成功');
+	out_result:='无需明细对账';
+	ELSE
+		INSERT INTO "Bank_Check_Total"VALUES(7002,SYSDATE,in_bank_code,Pbank_totalcount,Pbank_totalmoney,Pour_totalcount,Pour_totalmoney,'01');
+		DBMS_OUTPUT.PUT_LINE('对总账失败，接下来执行对账明细');
+		
+		END IF;
+	open record_b;
+	
+	
+	loop
+	FETCH record_b INTO bb;
+	exit when record_b%notfound;
+	SELECT COUNT(*)INTO num FROM "Payment_record"p WHERE p."bank_code" = bb."bank_code"AND p."bank_flow_num"=bb."bank_flow_num";
+		--DBMS_OUTPUT.PUT_LINE(num);
+	if num = 0 THEN 
+	   DBMS_OUTPUT.PUT_LINE('用户id：'||bb."user_id");
+		 DBMS_OUTPUT.PUT_LINE('银行流水号：'||bb."bank_flow_num");
+		 DBMS_OUTPUT.PUT_LINE('银行交易总额：'||bb."transaction_money");
+		 
+ 		INSERT INTO "Bank_Check_detail"VALUES(8001,SYSDATE,in_bank_code,bb."bank_flow_num",bb."user_id",'0',bb."transaction_money",'银行无此流水号');
+		out_result:='银行无此流水号';
+		
+ 	ELSE
+ 		SELECT "pay_amount" INTO pr_money FROM "Payment_record"p WHERE bb."bank_flow_num" = p."bank_flow_num";
+ 		--DBMS_OUTPUT.PUT_LINE('111');
+		DBMS_OUTPUT.PUT_LINE('银行编码：'||in_bank_code);
+		DBMS_OUTPUT.PUT_LINE('银行流水号：'||bb."bank_flow_num");
+		DBMS_OUTPUT.PUT_LINE('用户id：'||bb."user_id");
+		DBMS_OUTPUT.PUT_LINE('企业金额：'||pr_money);
+		DBMS_OUTPUT.PUT_LINE('银行金额：'||bb."transaction_money");
+		
+ 		if pr_money != bb."transaction_money" THEN
+ 		INSERT INTO "Bank_Check_detail"VALUES(8001,SYSDATE,in_bank_code,bb."bank_flow_num",bb."user_id",pr_money,bb."transaction_money",'对账金额有误');
+		out_result:='对账金额有误';
+ 		END IF;
+ 	END IF;
+	END loop;
+	close record_b;
+	
+-- 	open record_pr;
+-- 	loop
+-- 	FETCH record_pr INTO pr;
+-- 	exit when record_pr%notfound;
+-- 	SELECT COUNT(*)INTO num FROM "Bank_Business_System"b WHERE b."bank_code" = pr."bank_code"AND b."bank_flow_num"=pr."bank_flow_num";
+-- 	IF num = 0 THEN 
+-- 	INSERT INTO "Bank_Check_detail"VALUES(8002,SYSDATE,in_bank_code,pr."bank_flow_num",pr."user_id",'0',pr."pay_amount",'企业无此流水号');
+-- 	out_result:='企业无此流水号';
+--  	IF record_b%notfound THEN
+--  		EXIT; 
+--  	END IF; 
+--  END LOOP;
+
+	-- routine body goes here, e.g.
+	-- DBMS_OUTPUT.PUT_LINE('Navicat for Oracle');
+	--END IF;
+	--END loop;
+	--close record_pr;
+END;

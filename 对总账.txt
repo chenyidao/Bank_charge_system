@@ -1,0 +1,33 @@
+CREATE OR REPLACE
+PROCEDURE "checktotal" (in_bank_code IN VARCHAR2,out_result OUT VARCHAR2) 
+AS
+Pour_totalcount NUMBER(10);
+Pour_totalmoney NUMBER(10,2);
+Pbank_totalcount NUMBER(10);
+Pbank_totalmoney NUMBER(10,2);
+
+BEGIN
+	SELECT COUNT(*),SUM(p."pay_amount")
+	INTO Pour_totalcount,Pour_totalmoney
+	FROM "Payment_record" p
+	WHERE p."bank_code" = in_bank_code AND TO_CHAR(p."pay_time",'yyyy-mm-dd')=TO_CHAR(SYSDATE-1,'yyyy-mm-dd');
+	
+	SELECT COUNT(*),SUM(b."transaction_money")
+	INTO Pbank_totalcount,Pbank_totalmoney
+	FROM "Bank_Business_System" b
+	WHERE b."bank_code" = in_bank_code AND TO_CHAR(b."transaction_time",'yyyy-mm-dd') = TO_CHAR(SYSDATE-1,'yyyy-mm-dd');
+	
+	IF Pour_totalcount = Pbank_totalcount AND Pour_totalmoney = Pbank_totalmoney THEN
+	--DBMS_OUTPUT.PUT_LINE(Pbank_totalmoney);
+		INSERT INTO "Bank_Check_Total"VALUES(7001,SYSDATE,in_bank_code,Pbank_totalcount,Pbank_totalmoney,Pour_totalcount,Pour_totalmoney,'00');
+		--DBMS_OUTPUT.PUT_LINE(Pbank_totalmoney);
+	out_result:='对账成功';
+	
+	ELSE
+		INSERT INTO "Bank_Check_Total"VALUES(7001,SYSDATE,in_bank_code,Pbank_totalcount,Pbank_totalmoney,Pour_totalcount,Pour_totalmoney,'01');
+		out_result:='对账失败';
+		END IF;
+	-- routine body goes here, e.g.
+	-- DBMS_OUTPUT.PUT_LINE('Navicat for Oracle');
+	
+END;

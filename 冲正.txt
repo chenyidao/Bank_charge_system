@@ -1,0 +1,42 @@
+CREATE OR REPLACE
+PROCEDURE "correct" (in_user_no IN NUMBER DEFAULT '0', in_correct_fee IN NUMBER DEFAULT '0', in_flow_num IN NUMBER DEFAULT '0', out_result OUT VARCHAR2)
+AS
+	num_of_record NUMBER(4);
+	Puser_num "Bank_Business_System"."user_id"%type;
+	Puser_name VARCHAR2(20);
+	Perror VARCHAR2(20);
+	Pbasic_fee "List_Of_Fees"."basic_fee"%TYPE;
+	Ppay_time DATE;
+	Pneed_pay NUMBER(10,2);
+	Padd_fee1 "List_Of_Fees"."add1_fee"%TYPE;
+	Padd_fee2 NUMBER(10,2);
+	Plate_fee NUMBER(10,2);
+	Prbalance NUMBER(10,2);
+	Pbalance NUMBER(10,2);
+	Precord_time DATE;
+BEGIN
+	
+	SELECT COUNT(in_flow_num)INTO num_of_record FROM "Bank_Business_System" WHERE in_flow_num="bank_flow_num"; 
+	IF num_of_record = 0 THEN
+			Perror:= '冲正错误';
+			out_result:=Perror;
+	END IF;
+	
+	SELECT "transaction_time","user_id","user_name" INTO Ppay_time,Puser_num,Puser_name FROM "Bank_Business_System"WHERE "bank_flow_num"=in_flow_num;
+	DBMS_OUTPUT.PUT_LINE(TO_CHAR(Ppay_time,'yyyy-mm-dd'));
+	DBMS_OUTPUT.PUT_LINE('userName'||Puser_num);
+	SELECT "pay_time"INTO Precord_time FROM "Payment_record"WHERE "bank_flow_num" = in_flow_num;
+	SELECT "basic_fee","add1_fee","add2_fee","penalty" INTO Pbasic_fee,Padd_fee1,Padd_fee2,Plate_fee FROM "List_Of_Fees" WHERE TO_CHAR(Ppay_time,'yyyy-mm-dd')=TO_CHAR(Precord_time,'yyyy-mm-dd')AND in_user_no = "user_id";
+	SELECT "balance" INTO Pbalance FROM "User" WHERE "user_id" = in_user_no;
+	Prbalance:= Pbasic_fee+Padd_fee1+Padd_fee2+Plate_fee;
+	Pbalance:= Pbalance+Prbalance;
+	UPDATE "User" SET "balance" = Pbalance WHERE "user_id"=Puser_num;
+	INSERT INTO "Payment_record" VALUES(6004,in_user_no,SYSDATE,-in_correct_fee,'02','CMB'，5004);
+	INSERT INTO "Bank_Business_System" VALUES(5004,'CMB',in_user_no,Puser_name,SYSDATE,-in_correct_fee,'冲正');
+	-- routine body goes here, e.g.
+	-- DBMS_OUTPUT.PUT_LINE('Navicat for Oracle');
+	UPDATE "List_Of_Fees" SET "pay_state"=0 WHERE TO_CHAR(Ppay_time,'yyyy-mm-dd')=TO_CHAR(Precord_time,'yyyy-mm-dd') AND "user_id"=in_user_no;
+	out_result:='冲正成功';
+	
+	
+END;

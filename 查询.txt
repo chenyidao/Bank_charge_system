@@ -1,0 +1,100 @@
+CREATE OR REPLACE
+PROCEDURE search (user_no IN NUMBER DEFAULT '0',error OUT VARCHAR2, out_username OUT VARCHAR2, out_useraddress OUT VARCHAR2,out_needpay OUT NUMBER,out_current_userbalance OUT NUMBER)
+AS
+	Puser_name VARCHAR2(20);  --用户名
+	Puser_address VARCHAR2(20);	--用户地址
+	--Pshould_pay NUMBER(10,2);	
+	Pbasic_fee NUMBER(10,2); --基础费用
+	user_num NUMBER(4); --用户id
+	current_user_balance NUMBER(10,2); --用户当前账户余额
+	Padd_fee1 NUMBER(10,2);  --附加费用1
+	Padd_fee2 NUMBER(10,2);  --附加费用2
+	Perror VARCHAR2(20);	--是否出现错误
+	late_fee NUMBER(10,2);	--违约金
+	Puser_id NUMBER(4);	
+	Pneed_pay NUMBER(10,2); --应付费用
+	len_of_days NUMBER(4); --违约天数
+	Pend DATE; 
+	Pactual_date DATE;
+	P_eb_id NUMBER(4); 
+	final_fee NUMBER(10,2);
+	Pdevice_type VARCHAR2(5);
+	final_late_fee VARCHAR2(20);
+	Ppay_state VARCHAR2(5);
+	--fee NUMBER(10);
+	cursor c IS
+		SELECT  "List_Of_Fees"."user_id","should_pay","should_date","actual_date","eb_id","address","device_type" FROM "List_Of_Fees","User","Device" WHERE "List_Of_Fees"."user_id"=user_no AND "User"."user_id"="List_Of_Fees"."user_id"AND "Device"."device_id"="List_Of_Fees"."device_id" AND "List_Of_Fees"."user_id"="Device"."user_id"AND "pay_state"='0';
+BEGIN
+	SELECT COUNT(*)INTO user_num FROM "User" WHERE "user_id" = user_no;
+	if
+		user_num =0 THEN
+		Perror:='not this user';
+		error:=Perror;
+		end if;
+	
+		open c;
+		LOOP
+	  FETCH c INTO Puser_id,Pneed_pay,Pend,Pactual_date,P_eb_id,Puser_address,Pdevice_type;
+		len_of_days:= Pactual_date - Pend-1;
+		IF len_of_days>0 THEN
+			IF Pdevice_type='01' THEN
+				final_late_fee:=len_of_days*Pneed_pay*0.001;
+				--final_fee:=final_fee+Pneed_pay+final_late_fee;
+			ELSE
+				final_late_fee:=len_of_days*Pneed_pay*0.002;
+				--final_fee:=final_fee+Pneed_pay+final_late_fee;
+			END IF;
+		END IF;
+		UPDATE "List_Of_Fees" SET "List_Of_Fees"."penalty"=final_late_fee,"List_Of_Fees"."actual_pay"=Pneed_pay+final_late_fee WHERE Puser_id = user_no AND Puser_id="List_Of_Fees"."user_id" AND "List_Of_Fees"."eb_id" = P_eb_id;
+		
+		--IF(final_fee<=current_user_balance)
+		--IF(final_late_fee<=P_balance AND final_late_fee!=0) THEN
+		--SELECT "balance"INTO d_balance FROM "Device" WHERE "Device"."device_id"=device_no;
+	IF c%notfound THEN
+		EXIT; 
+	END IF; 
+END LOOP;
+	  
+	SELECT "User"."balance"INTO current_user_balance FROM "User" WHERE "User"."user_id"=user_no;
+		out_current_userbalance:= current_user_balance;
+		
+	--客户余额计算
+		/**
+		if(Pneed_pay<=current_user_balance AND Pneed_pay!=0) THEN
+			
+				out_final_userbalance:= current_user_balance-Pneed_pay;
+				UPDATE "User" SET "User"."balance"="User"."balance"-Pneed_pay WHERE "User"."user_id"=user_no;
+				UPDATE "List_Of_Fees"SET "pay_state"='1' WHERE"user_id"=user_no;
+				Pneed_pay:=0;
+		else**/
+			
+		close c;
+		
+		
+		SELECT "user_name" INTO Puser_name FROM "User" where "user_id" = user_no;
+		SELECT SUM("basic_fee"),SUM("add1_fee"),SUM("add2_fee"),SUM("penalty")INTO Pbasic_fee,Padd_fee1,Padd_fee2,late_fee FROM "List_Of_Fees" WHERE "user_id"=user_no AND "pay_state"=0;
+		 
+		DBMS_OUTPUT.PUT_LINE(Pbasic_fee);
+		DBMS_OUTPUT.PUT_LINE(Padd_fee1);
+		DBMS_OUTPUT.PUT_LINE(Padd_fee2);
+		DBMS_OUTPUT.PUT_LINE(late_fee);
+		out_needpay:=Pbasic_fee+Padd_fee1+Padd_fee2+late_fee;
+		final_fee:=Pbasic_fee+Padd_fee1+Padd_fee2+late_fee;
+		IF(final_fee!=0 AND final_fee>current_user_balance) THEN
+				--Pneed_pay:= Pneed_pay-current_user_balance;
+				--out_final_userbalance:=current_user_balance;
+				DBMS_OUTPUT.PUT_LINE('提示：账户余额不够缴费，请及时缴费');
+		--END if;
+		END IF;
+		--fee := Pneed_pay+Padd_fee1+Padd_fee2+late_fee;
+		--DBMS_OUTPUT.PUT_LINE(fee);
+		out_username:=Puser_name;
+		out_useraddress:=Puser_address;
+		out_current_userbalance:=current_user_balance;
+		Perror:= 'not error';
+		error:= Perror;
+		DBMS_OUTPUT.PUT_LINE('输出的结果如下：'||'(是否发生错误 用户名 用户地址 欠费总额 当前账户余额)');
+	end search;
+	
+	-- routine body goes here, e.g.
+	-- DBMS_OUTPUT.PUT_LINE('Navicat for Oracle');
